@@ -1,0 +1,73 @@
+services:
+  mariadb:
+    image: mariadb
+    container_name: mariadb
+    restart: always
+    volumes:
+      - ./data:/var/lib/mysql
+    ports:
+      - 3306:3306
+    environment:
+      MYSQL_ROOT_HOST: '%'
+    networks:
+      - my_net
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: phpmyadmin
+    restart: always
+    ports:
+      - 8000:80
+    environment:
+      - PMA_HOST=mariadb
+    depends_on:
+      - mariadb
+    networks:
+      - my_net
+
+  mysqld_exporter:
+    image: prom/mysqld-exporter:latest
+    container_name: mysqld_exporter
+    environment:
+    - MYSQL_HOST=mariadb
+    volumes:
+      - ./my.cnf:/etc/mysqld_exporter.cnf
+    command: 
+    - "--config.my-cnf=/etc/mysqld_exporter.cnf"
+    ports:
+      - "9104:9104"
+    depends_on:
+      - mariadb
+    networks:
+      - my_net
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    depends_on:
+      - mariadb
+      - mysqld_exporter
+    networks:
+      - my_net
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+    - ./grafana-dashboards:/etc/grafana/dashboards
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - my_net
+
+networks:
+  my_net:
+    driver: bridge
